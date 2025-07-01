@@ -5,6 +5,7 @@ from dotenv import load_dotenv
 import os
 import pandas as pd
 from urllib.parse import urlencode, quote
+from dotenv import load_dotenv
 
 # Load environment variables from .env
 load_dotenv()
