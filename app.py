@@ -32,7 +32,7 @@ def list_files():
     return jsonify({"files": files})
 
 # 📄 List sheet names from a file
-@app.route("/file/<filename>/sheets")
+@app.route("/files/<filename>/sheets")
 def list_sheets(filename):
     require_api_key()
     filepath = os.path.join(DATA_DIR, filename)
@@ -46,7 +46,7 @@ def list_sheets(filename):
         return jsonify({"error": f"Failed to read file: {str(e)}"}), 500
 
 # 📄 Get paginated sheet data
-@app.route("/file/<filename>/sheet/<sheet_name>")
+@app.route("/files/<filename>/sheets/<sheet_name>")
 def get_sheet_data(filename, sheet_name):
     require_api_key()
     filepath = os.path.join(DATA_DIR, filename)
