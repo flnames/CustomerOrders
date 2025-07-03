@@ -1,102 +1,69 @@
 from flask import Flask, request, jsonify, abort
-from flask_limiter import Limiter
-from flask_limiter.util import get_remote_address
-from dotenv import load_dotenv
-import os
 import pandas as pd
-from urllib.parse import urlencode, quote
+import os
 from dotenv import load_dotenv
 
-# Load environment variables from .env
+# Load environment variables
 load_dotenv()
 API_KEY = os.getenv("API_KEY")
-
-# Config
-DATA_DIR = "data"          # Folder containing .xlsx files
-PER_PAGE = 25              # Fixed number of rows per page
+EXCEL_FILE = "CustomerOrders.xlsx"
+PER_PAGE = 25
 
 app = Flask(__name__)
-limiter = Limiter(get_remote_address, app=app, default_limits=["100 per hour"])
 
-# 🔐 Authentication middleware
+# 🔐 Authorization check
 def require_api_key():
     token = request.headers.get("Authorization")
     if token != f"Bearer {API_KEY}":
-        abort(401, description="Unauthorized")
+        abort(401, description="Unauthorized: Invalid API Key")
 
-# 📁 List all available Excel files
-@app.route("/files")
-def list_files():
+# 📊 /data endpoint with pagination (page defaults to 1)
+@app.route("/data")
+def get_data():
     require_api_key()
-    files = [f for f in os.listdir(DATA_DIR) if f.endswith(".xlsx")]
-    return jsonify({"files": files})
 
-# 📄 List sheet names from a file
-@app.route("/files/<filename>/sheets")
-def list_sheets(filename):
-    require_api_key()
-    filepath = os.path.join(DATA_DIR, filename)
-    if not os.path.isfile(filepath):
-        return jsonify({"error": "File not found"}), 404
-
-    try:
-        sheet_names = pd.ExcelFile(filepath).sheet_names
-        return jsonify({"sheets": sheet_names})
-    except Exception as e:
-        return jsonify({"error": f"Failed to read file: {str(e)}"}), 500
-
-# 📄 Get paginated sheet data
-@app.route("/files/<filename>/sheets/<sheet_name>")
-def get_sheet_data(filename, sheet_name):
-    require_api_key()
-    filepath = os.path.join(DATA_DIR, filename)
-    if not os.path.isfile(filepath):
-        return jsonify({"error": "File not found"}), 404
-
+    # Parse page number (defaults to 1)
     try:
         page = int(request.args.get("page", 1))
         if page <= 0:
             raise ValueError
     except ValueError:
-        return jsonify({"error": "Invalid page value"}), 400
+        return jsonify({"error": "Invalid 'page' parameter"}), 400
+
+    # Load Excel file
+    if not os.path.isfile(EXCEL_FILE):
+        return jsonify({"error": f"'{EXCEL_FILE}' not found"}), 404
 
     try:
-        df = pd.read_excel(filepath, sheet_name=sheet_name)
+        df = pd.read_excel(EXCEL_FILE)
         data = df.to_dict(orient="records")
     except Exception as e:
-        return jsonify({"error": f"Could not load sheet: {str(e)}"}), 500
+        return jsonify({"error": f"Failed to read Excel file: {str(e)}"}), 500
 
+    # Pagination logic
+    total_rows = len(data)
     start = (page - 1) * PER_PAGE
     end = start + PER_PAGE
     paginated = data[start:end]
-    has_more = end < len(data)
+    has_more = end < total_rows
 
-    # Build next page URL if there are more records
-    next_page_url = None
-    if has_more:
-        encoded_file = quote(filename)
-        encoded_sheet = quote(sheet_name)
-        next_page_url = f"/file/{encoded_file}/sheet/{encoded_sheet}?page={page + 1}"
+    # Build next page URL
+    next_page_url = f"/data?page={page + 1}" if has_more else None
 
     return jsonify({
-        "file": filename,
-        "sheet": sheet_name,
         "page": page,
         "per_page": PER_PAGE,
-        "total_rows": len(data),
+        "total_rows": total_rows,
         "has_more": has_more,
         "next_page": next_page_url,
         "data": paginated
     })
 
-# 🔐 Error handlers
+# 🔐 Handle auth errors
 @app.errorhandler(401)
 def unauthorized(e):
     return jsonify({"error": str(e)}), 401
 
-@app.errorhandler(429)
-def rate_limit_exceeded(e):
-    return jsonify({"error": "Rate limit exceeded"}), 429
-
 if __name__ == "__main__":
-    app.run(debug=True)
+    port = int(os.environ.get("PORT", 10000))  # Render compatibility
+    app.run(host="0.0.0.0", port=port)
