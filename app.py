@@ -36,7 +36,7 @@ except Exception as e:
     data = []
 
 # 📊 /data endpoint with pagination
-@app.route("/data")
+@app.route("/CustomerOrders")
 def get_data():
     require_api_key()
 
