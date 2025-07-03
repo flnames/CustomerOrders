@@ -17,28 +17,36 @@ def require_api_key():
     if token != f"Bearer {API_KEY}":
         abort(401, description="Unauthorized: Invalid API Key")
 
-# 📊 /data endpoint with pagination (page defaults to 1)
+# 🟢 Health check endpoint for Render
+@app.route("/")
+def index():
+    return "OK", 200
+
+# 📦 Load Excel data once at startup
+try:
+    if not os.path.isfile(EXCEL_FILE):
+        print(f"[ERROR] '{EXCEL_FILE}' not found.")
+        data = []
+    else:
+        df = pd.read_excel(EXCEL_FILE)
+        data = df.to_dict(orient="records")
+        print(f"[INFO] Loaded {len(data)} records from '{EXCEL_FILE}'")
+except Exception as e:
+    print(f"[ERROR] Failed to read Excel file: {e}")
+    data = []
+
+# 📊 /data endpoint with pagination
 @app.route("/data")
 def get_data():
     require_api_key()
 
-    # Parse page number (defaults to 1)
+    # Parse page number
     try:
         page = int(request.args.get("page", 1))
         if page <= 0:
             raise ValueError
     except ValueError:
         return jsonify({"error": "Invalid 'page' parameter"}), 400
-
-    # Load Excel file
-    if not os.path.isfile(EXCEL_FILE):
-        return jsonify({"error": f"'{EXCEL_FILE}' not found"}), 404
-
-    try:
-        df = pd.read_excel(EXCEL_FILE)
-        data = df.to_dict(orient="records")
-    except Exception as e:
-        return jsonify({"error": f"Failed to read Excel file: {str(e)}"}), 500
 
     # Pagination logic
     total_rows = len(data)
@@ -47,15 +55,12 @@ def get_data():
     paginated = data[start:end]
     has_more = end < total_rows
 
-    # Build next page URL
-    next_page_url = f"/data?page={page + 1}" if has_more else None
-
     return jsonify({
         "page": page,
         "per_page": PER_PAGE,
         "total_rows": total_rows,
         "has_more": has_more,
-        "next_page": next_page_url,
+        "next_page": f"/data?page={page + 1}" if has_more else None,
         "data": paginated
     })
 
