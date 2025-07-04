@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 load_dotenv()
 API_KEY = os.getenv("API_KEY")
 EXCEL_FILE = "CustomerOrders.xlsx"
-PER_PAGE = 25
+PER_PAGE = 500
 
 app = Flask(__name__)
 
