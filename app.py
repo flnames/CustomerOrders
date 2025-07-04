@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, abort
+from flask import Flask, request, jsonify, abort, url_for
 import pandas as pd
 import os
 from dotenv import load_dotenv
@@ -36,7 +36,7 @@ except Exception as e:
     data = []
 
 # 📊 /data endpoint with pagination
-@app.route("/CustomerOrders")
+@app.route("/CustomerOrders", strict_slashes=False)
 def get_data():
     require_api_key()
 
@@ -60,7 +60,7 @@ def get_data():
         "per_page": PER_PAGE,
         "total_rows": total_rows,
         "has_more": has_more,
-        "next_page": f"?page={page + 1}" if has_more else None,
+        "next_page": url_for('get_data', page=page + 1, _external=True) if has_more else None,
         "data": paginated
     })
 
