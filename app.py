@@ -60,7 +60,7 @@ def get_data():
         "per_page": PER_PAGE,
         "total_rows": total_rows,
         "has_more": has_more,
-        "next_page": f"/data?page={page + 1}" if has_more else None,
+        "next_page": f"?page={page + 1}" if has_more else None,
         "data": paginated
     })
 
